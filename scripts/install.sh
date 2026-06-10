@@ -181,13 +181,14 @@ echo "==> Loading LaunchAgent..."
 launchctl bootout "gui/$(id -u)/${LABEL}" 2>/dev/null || true
 launchctl bootstrap "gui/$(id -u)" "${PLIST_DEST}"
 
+echo ""
+echo "dockswitch installed and running."
+echo "Edit config : ${CONFIG_DEST}"
+echo "View logs   : tail -f ${LOG_DIR}/stdout.log"
+
 if [[ "${REMOVE_XCODE}" == true ]]; then
     echo "==> Removing Xcode Command Line Tools..."
     sudo rm -rf /Library/Developer/CommandLineTools
     echo "    Xcode Command Line Tools removed."
 fi
 
-echo ""
-echo "dockswitch installed and running."
-echo "Edit config : ${CONFIG_DEST}"
-echo "View logs   : tail -f ${LOG_DIR}/stdout.log"
