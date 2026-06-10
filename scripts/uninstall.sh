@@ -11,12 +11,12 @@ REMOVE_XCODE=false
 
 for arg in "$@"; do
     case $arg in
-        --xcode-tools)
+        --remove-xcode-tools)
             REMOVE_XCODE=true
             ;;
         *)
             echo "Unknown flag: $arg"
-            echo "Usage: uninstall.sh [--xcode-tools]"
+            echo "Usage: uninstall.sh [--remove-xcode-tools]"
             exit 1
             ;;
     esac
@@ -46,5 +46,5 @@ fi
 echo ""
 echo "dockswitch uninstalled."
 if [[ "${REMOVE_XCODE}" == false ]]; then
-    echo "To also remove Xcode Command Line Tools re-run with the following flag: --xcode-tools"
+    echo "To also remove Xcode Command Line Tools re-run with the following flag: --remove-xcode-tools"
 fi
