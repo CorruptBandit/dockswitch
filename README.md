@@ -8,13 +8,13 @@ A lightweight macOS LaunchAgent written in Swift that monitors a USB device (e.g
 2. It polls the IORegistry USB plane every _n_ seconds
 3. When your device connects or disconnects, it applies the configured keyboard layout and scroll direction immediately — no logout required
 
+> **Note:** DockSwitch requires an active user session to apply keyboard and scroll settings and will not take effect until after login. This is a macOS limitation with no public API workaround.
+
 ## Requirements
 
 - macOS Ventura or later (tested on macOS Tahoe 26.5)
 - Xcode Command Line Tools (handled by the installer)
 - Target keyboard layouts must be added in **System Settings → Keyboard → Input Sources** (handled by the installer)
-
-> **Note:** DockSwitch requires an active user session to apply keyboard and scroll settings and will not take effect until after login. This is a macOS limitation with no public API workaround.
 
 ## Install
 
@@ -50,7 +50,7 @@ To also remove Xcode Command Line Tools:
 
 ## Configuration
 
-Your config is written to `~/.config/dockswitch/config.json` during install. You can edit it at any time. See [`config.json`](config.json) for a full example. Key reference:
+Your config is written to `~/.config/dockswitch/config.json` during install. You can edit it at any time. Key reference:
 
 | Key | Description |
 |---|---|
