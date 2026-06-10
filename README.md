@@ -12,7 +12,7 @@ A lightweight macOS LaunchAgent written in Swift that monitors a USB device (e.g
 
 ## Requirements
 
-- macOS Ventura or later (tested on macOS Tahoe 26.0)
+- macOS Ventura or later (tested on macOS Tahoe 26.5)
 - Xcode Command Line Tools (handled by the installer)
 - Target keyboard layouts must be added in **System Settings → Keyboard → Input Sources** (handled by the installer)
 
