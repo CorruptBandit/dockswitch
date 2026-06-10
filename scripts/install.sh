@@ -46,7 +46,11 @@ if [[ -f "${BINARY_DEST}" || -f "${PLIST_DEST}" || -f "${CONFIG_DEST}" ]]; then
 fi
 
 if ! xcode-select -p &>/dev/null; then
-    echo "Xcode Command Line Tools not found. Installing..."
+    echo "Xcode Command Line Tools not found."
+    echo "A macOS dialog will open in another window asking you to install them."
+    echo "Click 'Install' and wait for it to complete — this may take several minutes."
+    echo "This script will continue automatically once the installation is done."
+    echo ""
     xcode-select --install 2>/dev/null || true
     echo "Waiting for Xcode Command Line Tools installation to complete..."
     until xcode-select -p &>/dev/null; do
