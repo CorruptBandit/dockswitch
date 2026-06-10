@@ -9,6 +9,20 @@ PLIST_DEST="${HOME}/Library/LaunchAgents/com.dockswitch.plist"
 LOG_DIR="${HOME}/Library/Logs/dockswitch"
 LABEL="com.dockswitch"
 TMP_DIR="$(mktemp -d)"
+REMOVE_XCODE=false
+
+for arg in "$@"; do
+    case $arg in
+        --remove-xcode-tools)
+            REMOVE_XCODE=true
+            ;;
+        *)
+            echo "Unknown flag: $arg"
+            echo "Usage: install.sh [--remove-xcode-tools]"
+            exit 1
+            ;;
+    esac
+done
 
 cleanup() {
     rm -rf "${TMP_DIR}"
@@ -162,6 +176,12 @@ sed "s|__HOME__|${HOME}|g" "${TMP_DIR}/com.dockswitch.plist.template" > "${PLIST
 echo "==> Loading LaunchAgent..."
 launchctl bootout "gui/$(id -u)/${LABEL}" 2>/dev/null || true
 launchctl bootstrap "gui/$(id -u)" "${PLIST_DEST}"
+
+if [[ "${REMOVE_XCODE}" == true ]]; then
+    echo "==> Removing Xcode Command Line Tools..."
+    sudo rm -rf /Library/Developer/CommandLineTools
+    echo "    Xcode Command Line Tools removed."
+fi
 
 echo ""
 echo "dockswitch installed and running."

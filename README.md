@@ -8,17 +8,29 @@ A lightweight macOS LaunchAgent written in Swift that monitors a USB device (e.g
 2. It polls the IORegistry USB plane every _n_ seconds
 3. When your device connects or disconnects, it applies the configured keyboard layout and scroll direction immediately — no logout required
 
+> **Note:** DockSwitch requires an active user session to apply keyboard and scroll settings and will not take effect until after login. This is a macOS limitation with no public API workaround.
+
 ## Requirements
 
-- macOS Ventura or later (tested on macOS Tahoe 26.5)
+- macOS Ventura or later (tested on macOS Tahoe 26.0)
 - Xcode Command Line Tools (handled by the installer)
 - Target keyboard layouts must be added in **System Settings → Keyboard → Input Sources** (handled by the installer)
 
-> **Note:** DockSwitch requires an active user session to apply keyboard and scroll settings and will not take effect until after login. This is a macOS limitation with no public API workaround.
+## Building from Source
+
+The installer builds DockSwitch from source on your machine using the Swift compiler. There are currently no pre-built binaries available.
+
+Xcode Command Line Tools are required to compile the binary. If you do not have them installed, the installer will prompt you to install them — this is a common dependency on macOS and you may already have it if you have used Homebrew, Git, or any other developer tooling. Once the binary has been built the tools are no longer needed by DockSwitch.
+
+To remove Xcode Command Line Tools automatically after the build, pass the `--remove-xcode-tools` flag.
 
 ## Install
 
     curl -fsSL https://raw.githubusercontent.com/CorruptBandit/dockswitch/main/scripts/install.sh | bash
+
+To also remove Xcode Command Line Tools:
+
+    curl -fsSL https://raw.githubusercontent.com/CorruptBandit/dockswitch/main/scripts/install.sh | bash -s -- --remove-xcode-tools
 
 The installer will:
 
@@ -46,24 +58,29 @@ The installer will:
 
 To also remove Xcode Command Line Tools:
 
-    curl -fsSL https://raw.githubusercontent.com/CorruptBandit/dockswitch/main/scripts/uninstall.sh | bash -s -- --xcode-tools
+    curl -fsSL https://raw.githubusercontent.com/CorruptBandit/dockswitch/main/scripts/uninstall.sh | bash -s -- --remove-xcode-tools
 
 ## Configuration
 
-Your config is written to `~/.config/dockswitch/config.json` during install. You can edit it at any time. See [`config.json`](config.json) for a full example. Key reference:
+Your config is written to `~/.config/dockswitch/config.json` during install. You can edit it at any time. Key reference:
 
 | Key | Description |
 |---|---|
 | `deviceName` | Substring of your device's USB product name (case-insensitive) |
 | `pollIntervalSeconds` | How often to check for device changes (minimum recommended: `1`) |
-| `keyboardLayout` | Suffix of the Apple input source ID, e.g. `British-PC` → `com.apple.keylayout.British-PC` |
+| `keyboardLayout` | Suffix of the Apple input source ID, e.g. `British-PC` to `com.apple.keylayout.British-PC` |
 | `scrollDirection` | `"natural"` or `"standard"` |
 
-> **Finding your device name:** Run `ioreg -p IOUSB` with your device plugged in and look for the `"USB Product Name"` field. Any substring of that value will work.
+> **Finding your device name:** Run `ioreg -p IOUSB` with your device plugged in. Any substring of your device name will work.
 
 ## Managing the Service
 
+Stop the service:
+
     launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.dockswitch.plist
+
+Start the service:
+
     launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.dockswitch.plist
 
 View logs:
