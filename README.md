@@ -10,9 +10,11 @@ A lightweight macOS LaunchAgent written in Swift that monitors a USB device (e.g
 
 ## Requirements
 
-- macOS Ventura or later
-- Xcode Command Line Tools (installer script will handle this)
-- Target keyboard layouts must be pre-added in **System Settings → Keyboard → Input Sources**
+- macOS Ventura or later (tested on macOS Tahoe 26.5)
+- Xcode Command Line Tools (handled by the installer)
+- Target keyboard layouts must be added in **System Settings → Keyboard → Input Sources** (handled by the installer)
+
+> **Note:** DockSwitch requires an active user session to apply keyboard and scroll settings and will not take effect until after login. This is a macOS limitation with no public API workaround.
 
 ## Install
 

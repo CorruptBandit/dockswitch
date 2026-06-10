@@ -15,6 +15,17 @@ cleanup() {
 }
 trap cleanup EXIT
 
+validate_keyboard_layout() {
+    local layout="${1}"
+    defaults read ~/Library/Preferences/com.apple.HIToolbox.plist AppleEnabledInputSources 2>/dev/null \
+        | grep -qi "\"KeyboardLayout Name\" = \"*${layout}\"*"
+}
+
+validate_device_name() {
+    local device="${1}"
+    ioreg -p IOUSB | grep -qi "${device}@"
+}
+
 if [[ -f "${BINARY_DEST}" || -f "${PLIST_DEST}" || -f "${CONFIG_DEST}" ]]; then
     echo "An existing DockSwitch installation was detected."
     read -rp "Run uninstall first then continue? (y/n): " CONFIRM </dev/tty
@@ -36,9 +47,12 @@ fi
 
 if ! xcode-select -p &>/dev/null; then
     echo "Xcode Command Line Tools not found. Installing..."
-    xcode-select --install
-    echo "Re-run this script once the installation completes."
-    exit 0
+    xcode-select --install 2>/dev/null || true
+    echo "Waiting for Xcode Command Line Tools installation to complete..."
+    until xcode-select -p &>/dev/null; do
+        sleep 5
+    done
+    echo "Xcode Command Line Tools installed."
 fi
 
 echo "==> Downloading sources..."
@@ -61,9 +75,23 @@ while [[ -z "${DEVICE_NAME}" ]]; do
     read -rp "Enter the USB device name to monitor: " DEVICE_NAME </dev/tty
 done
 
+if ! validate_device_name "${DEVICE_NAME}"; then
+    echo "    Warning: '${DEVICE_NAME}' was not found in the current USB device list."
+    echo "    This is fine if your dock is not currently plugged in."
+    echo "    Double check the spelling by running: ioreg -p IOUSB"
+fi
+
 read -rp "Enter keyboard layout when connected (e.g. British-PC): " LAYOUT_CONNECTED </dev/tty
-while [[ -z "${LAYOUT_CONNECTED}" ]]; do
-    echo "    Keyboard layout cannot be empty."
+while true; do
+    if [[ -z "${LAYOUT_CONNECTED}" ]]; then
+        echo "    Keyboard layout cannot be empty."
+    elif ! validate_keyboard_layout "${LAYOUT_CONNECTED}"; then
+        echo "    Layout 'com.apple.keylayout.${LAYOUT_CONNECTED}' not found."
+        echo "    Either the spelling is incorrect or it has not been added yet."
+        echo "    Add it via System Settings → Keyboard → Input Sources → Edit → +"
+    else
+        break
+    fi
     read -rp "Enter keyboard layout when connected (e.g. British-PC): " LAYOUT_CONNECTED </dev/tty
 done
 
@@ -74,8 +102,16 @@ while [[ "${SCROLL_CONNECTED}" != "natural" && "${SCROLL_CONNECTED}" != "standar
 done
 
 read -rp "Enter keyboard layout when disconnected (e.g. British): " LAYOUT_DISCONNECTED </dev/tty
-while [[ -z "${LAYOUT_DISCONNECTED}" ]]; do
-    echo "    Keyboard layout cannot be empty."
+while true; do
+    if [[ -z "${LAYOUT_DISCONNECTED}" ]]; then
+        echo "    Keyboard layout cannot be empty."
+    elif ! validate_keyboard_layout "${LAYOUT_DISCONNECTED}"; then
+        echo "    Layout 'com.apple.keylayout.${LAYOUT_DISCONNECTED}' not found."
+        echo "    Either the spelling is incorrect or it has not been added yet."
+        echo "    Add it via System Settings → Keyboard → Input Sources → Edit → +"
+    else
+        break
+    fi
     read -rp "Enter keyboard layout when disconnected (e.g. British): " LAYOUT_DISCONNECTED </dev/tty
 done
 
