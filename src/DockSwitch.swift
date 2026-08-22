@@ -24,7 +24,6 @@ enum ScrollDirection: String, Decodable {
 
 struct Configuration: Decodable {
     let deviceName: String
-    let pollIntervalSeconds: TimeInterval
     let onConnected: DeviceAction
     let onDisconnected: DeviceAction
 }
@@ -243,6 +242,61 @@ func installSignalHandlers() {
     signal(SIGINT, handler)
 }
 
+// MARK: - USB Notification Monitoring
+
+/// Holds the mutable connection state and configuration needed by the
+/// C-callback-driven IOKit notification handlers. A class is used (rather
+/// than a struct) because IOKit callbacks reach back into it via an
+/// `Unmanaged` pointer (refcon), which requires stable reference identity.
+final class USBDeviceMonitor {
+    let config: Configuration
+    var isConnected: Bool
+
+    init(config: Configuration, initiallyConnected: Bool) {
+        self.config = config
+        self.isConnected = initiallyConnected
+    }
+
+    /// Re-scans for the configured device and applies the corresponding
+    /// action only if connection state has changed since the last check.
+    func checkAndApply() {
+        let nowConnected = isDeviceConnected(config.deviceName)
+        guard nowConnected != isConnected else { return }
+
+        isConnected = nowConnected
+        if nowConnected {
+            Log.info("Device '\(config.deviceName)' connected.")
+            applyAction(config.onConnected)
+        } else {
+            Log.info("Device '\(config.deviceName)' disconnected.")
+            applyAction(config.onDisconnected)
+        }
+    }
+}
+
+/// Drains an IOKit notification iterator, releasing each returned service.
+/// Must be called after registering a notification and after every time its
+/// callback fires — otherwise IOKit will not deliver the next notification
+/// for that iterator.
+private func drainIOIterator(_ iterator: io_iterator_t) {
+    var service = IOIteratorNext(iterator)
+    while service != 0 {
+        IOObjectRelease(service)
+        service = IOIteratorNext(iterator)
+    }
+}
+
+/// Shared C callback registered for both `kIOMatchedNotification` (connect)
+/// and `kIOTerminatedNotification` (disconnect) against
+/// `kIOUSBDeviceClassName`. It doesn't need to know which direction fired
+/// it — it drains the iterator (required) and re-runs the connect/disconnect
+/// check, which diffs against last-known state.
+private func deviceStateChangeCallback(_ refcon: UnsafeMutableRawPointer?, _ iterator: io_iterator_t) {
+    drainIOIterator(iterator)
+    guard let refcon = refcon else { return }
+    Unmanaged<USBDeviceMonitor>.fromOpaque(refcon).takeUnretainedValue().checkAndApply()
+}
+
 // MARK: - Entry Point
 
 func main() {
@@ -267,29 +321,71 @@ func main() {
     }
 
     Log.info("Monitoring device: \"\(config.deviceName)\"")
-    Log.info("Poll interval: \(config.pollIntervalSeconds)s")
 
     installSignalHandlers()
 
-    var wasConnected = isDeviceConnected(config.deviceName)
-    Log.info("Initial state: \(wasConnected ? "connected" : "disconnected")")
-    applyAction(wasConnected ? config.onConnected : config.onDisconnected)
+    let initiallyConnected = isDeviceConnected(config.deviceName)
+    Log.info("Initial state: \(initiallyConnected ? "connected" : "disconnected")")
+    applyAction(initiallyConnected ? config.onConnected : config.onDisconnected)
 
-    while true {
-        Thread.sleep(forTimeInterval: config.pollIntervalSeconds)
+    let monitor = USBDeviceMonitor(config: config, initiallyConnected: initiallyConnected)
+    let refcon = Unmanaged.passUnretained(monitor).toOpaque()
 
-        let isConnected = isDeviceConnected(config.deviceName)
-        guard isConnected != wasConnected else { continue }
-
-        wasConnected = isConnected
-        if isConnected {
-            Log.info("Device '\(config.deviceName)' connected.")
-            applyAction(config.onConnected)
-        } else {
-            Log.info("Device '\(config.deviceName)' disconnected.")
-            applyAction(config.onDisconnected)
-        }
+    guard let notifyPort = IONotificationPortCreate(kIOMainPortDefault) else {
+        Log.error("Failed to create IONotificationPort. Exiting.")
+        exit(1)
     }
+
+    CFRunLoopAddSource(
+        CFRunLoopGetCurrent(),
+        IONotificationPortGetRunLoopSource(notifyPort).takeUnretainedValue(),
+        .defaultMode
+    )
+
+    // IOServiceMatching's returned dictionary is consumed by each
+    // IOServiceAddMatchingNotification call, so a fresh dictionary is
+    // required for each registration below.
+
+    var matchedIterator: io_iterator_t = 0
+    guard let matchedDict = IOServiceMatching(kIOUSBDeviceClassName) else {
+        Log.error("Failed to create matching dictionary for connect notifications. Exiting.")
+        exit(1)
+    }
+    let matchedResult = IOServiceAddMatchingNotification(
+        notifyPort,
+        kIOMatchedNotification,
+        matchedDict,
+        deviceStateChangeCallback,
+        refcon,
+        &matchedIterator
+    )
+    guard matchedResult == KERN_SUCCESS else {
+        Log.error("Failed to register connect notification (code \(matchedResult)). Exiting.")
+        exit(1)
+    }
+    drainIOIterator(matchedIterator)
+
+    var terminatedIterator: io_iterator_t = 0
+    guard let terminatedDict = IOServiceMatching(kIOUSBDeviceClassName) else {
+        Log.error("Failed to create matching dictionary for disconnect notifications. Exiting.")
+        exit(1)
+    }
+    let terminatedResult = IOServiceAddMatchingNotification(
+        notifyPort,
+        kIOTerminatedNotification,
+        terminatedDict,
+        deviceStateChangeCallback,
+        refcon,
+        &terminatedIterator
+    )
+    guard terminatedResult == KERN_SUCCESS else {
+        Log.error("Failed to register disconnect notification (code \(terminatedResult)). Exiting.")
+        exit(1)
+    }
+    drainIOIterator(terminatedIterator)
+
+    Log.info("Event-driven USB monitoring active.")
+    CFRunLoopRun()
 }
 
 main()

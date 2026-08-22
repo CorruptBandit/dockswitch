@@ -5,7 +5,7 @@ A lightweight macOS LaunchAgent written in Swift that monitors a USB device (e.g
 ## How It Works
 
 1. DockSwitch starts at login via a LaunchAgent and reads `~/.config/dockswitch/config.json`
-2. It polls the IORegistry USB plane every _n_ seconds
+2. It registers with IOKit for USB attach/detach notifications and reacts the instant your device connects or disconnects — no polling
 3. When your device connects or disconnects, it applies the configured keyboard layout and scroll direction immediately — no logout required
 
 > **Note:** DockSwitch requires an active user session to apply keyboard and scroll settings and will not take effect until after login. This is a macOS limitation with no public API workaround.
@@ -28,7 +28,7 @@ To remove Xcode Command Line Tools automatically after the build, pass the `--re
 
     curl -fsSL https://raw.githubusercontent.com/CorruptBandit/dockswitch/main/scripts/install.sh | bash
 
-To also remove Xcode Command Line Tools:
+To also remove Xcode Command Line Tools post-build:
 
     curl -fsSL https://raw.githubusercontent.com/CorruptBandit/dockswitch/main/scripts/install.sh | bash -s -- --remove-xcode-tools
 
@@ -47,10 +47,9 @@ The installer will:
 
     Enter the USB device name to monitor: TBT4 KVM HUB
     Enter keyboard layout when connected (e.g. British-PC): British-PC
-    Enter scroll direction when connected (natural/standard): standard
+    Enter scroll direction when connected (Natural/Standard): Standard
     Enter keyboard layout when disconnected (e.g. British): British
-    Enter scroll direction when disconnected (natural/standard): natural
-    Enter poll interval in seconds (default: 3): 3
+    Enter scroll direction when disconnected (Natural/Standard): Natural
 
 ## Uninstall
 
@@ -67,7 +66,6 @@ Your config is written to `~/.config/dockswitch/config.json` during install. You
 | Key | Description |
 |---|---|
 | `deviceName` | Substring of your device's USB product name (case-insensitive) |
-| `pollIntervalSeconds` | How often to check for device changes (minimum recommended: `1`) |
 | `keyboardLayout` | Suffix of the Apple input source ID, e.g. `British-PC` to `com.apple.keylayout.British-PC` |
 | `scrollDirection` | `"natural"` or `"standard"` |
 

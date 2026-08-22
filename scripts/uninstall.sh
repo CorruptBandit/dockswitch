@@ -14,9 +14,13 @@ for arg in "$@"; do
         --remove-xcode-tools)
             REMOVE_XCODE=true
             ;;
+        --local)
+            # Accepted for symmetry with install.sh --local; uninstall never
+            # fetches remote files, so this has no effect.
+            ;;
         *)
             echo "Unknown flag: $arg"
-            echo "Usage: uninstall.sh [--remove-xcode-tools]"
+            echo "Usage: uninstall.sh [--local] [--remove-xcode-tools]"
             exit 1
             ;;
     esac
