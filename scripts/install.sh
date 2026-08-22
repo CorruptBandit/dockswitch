@@ -10,15 +10,19 @@ LOG_DIR="${HOME}/Library/Logs/dockswitch"
 LABEL="com.dockswitch"
 TMP_DIR="$(mktemp -d)"
 REMOVE_XCODE=false
+LOCAL=false
 
 for arg in "$@"; do
     case $arg in
         --remove-xcode-tools)
             REMOVE_XCODE=true
             ;;
+        --local)
+            LOCAL=true
+            ;;
         *)
             echo "Unknown flag: $arg"
-            echo "Usage: install.sh [--remove-xcode-tools]"
+            echo "Usage: install.sh [--local] [--remove-xcode-tools]"
             exit 1
             ;;
     esac
@@ -54,7 +58,11 @@ if [[ -f "${BINARY_DEST}" || -f "${PLIST_DEST}" || -f "${CONFIG_DEST}" ]]; then
         echo ""
     else
         echo "Aborting. Run the uninstall script first:"
-        echo "curl -fsSL ${REPO}/scripts/uninstall.sh | bash"
+        if [[ "${LOCAL}" == true ]]; then
+            echo "$(dirname "${BASH_SOURCE[0]}")/uninstall.sh --local"
+        else
+            echo "curl -fsSL ${REPO}/scripts/uninstall.sh | bash"
+        fi
         exit 0
     fi
 fi
@@ -73,9 +81,17 @@ if ! xcode-select -p &>/dev/null; then
     echo "Xcode Command Line Tools installed."
 fi
 
-echo "==> Downloading sources..."
-curl -fsSL "${REPO}/src/DockSwitch.swift" -o "${TMP_DIR}/DockSwitch.swift"
-curl -fsSL "${REPO}/packaging/com.dockswitch.plist.template" -o "${TMP_DIR}/com.dockswitch.plist.template"
+if [[ "${LOCAL}" == true ]]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    REPO_ROOT="$(dirname "${SCRIPT_DIR}")"
+    echo "==> Using local sources..."
+    cp "${REPO_ROOT}/src/DockSwitch.swift" "${TMP_DIR}/DockSwitch.swift"
+    cp "${REPO_ROOT}/packaging/com.dockswitch.plist.template" "${TMP_DIR}/com.dockswitch.plist.template"
+else
+    echo "==> Downloading sources..."
+    curl -fsSL "${REPO}/src/DockSwitch.swift" -o "${TMP_DIR}/DockSwitch.swift"
+    curl -fsSL "${REPO}/packaging/com.dockswitch.plist.template" -o "${TMP_DIR}/com.dockswitch.plist.template"
+fi
 
 echo "==> Building DockSwitch..."
 swiftc -framework Carbon -framework Foundation -framework IOKit \
@@ -113,10 +129,12 @@ while true; do
     read -rp "Enter keyboard layout when connected (e.g. British-PC): " LAYOUT_CONNECTED </dev/tty
 done
 
-read -rp "Enter scroll direction when connected (natural/standard): " SCROLL_CONNECTED </dev/tty
+read -rp "Enter scroll direction when connected (Natural/Standard): " SCROLL_CONNECTED </dev/tty
+SCROLL_CONNECTED="$(tr '[:upper:]' '[:lower:]' <<< "${SCROLL_CONNECTED}")"
 while [[ "${SCROLL_CONNECTED}" != "natural" && "${SCROLL_CONNECTED}" != "standard" ]]; do
     echo "    Must be 'natural' or 'standard'."
-    read -rp "Enter scroll direction when connected (natural/standard): " SCROLL_CONNECTED </dev/tty
+    read -rp "Enter scroll direction when connected (Natural/Standard): " SCROLL_CONNECTED </dev/tty
+    SCROLL_CONNECTED="$(tr '[:upper:]' '[:lower:]' <<< "${SCROLL_CONNECTED}")"
 done
 
 read -rp "Enter keyboard layout when disconnected (e.g. British): " LAYOUT_DISCONNECTED </dev/tty
@@ -133,18 +151,12 @@ while true; do
     read -rp "Enter keyboard layout when disconnected (e.g. British): " LAYOUT_DISCONNECTED </dev/tty
 done
 
-read -rp "Enter scroll direction when disconnected (natural/standard): " SCROLL_DISCONNECTED </dev/tty
+read -rp "Enter scroll direction when disconnected (Natural/Standard): " SCROLL_DISCONNECTED </dev/tty
+SCROLL_DISCONNECTED="$(tr '[:upper:]' '[:lower:]' <<< "${SCROLL_DISCONNECTED}")"
 while [[ "${SCROLL_DISCONNECTED}" != "natural" && "${SCROLL_DISCONNECTED}" != "standard" ]]; do
     echo "    Must be 'natural' or 'standard'."
-    read -rp "Enter scroll direction when disconnected (natural/standard): " SCROLL_DISCONNECTED </dev/tty
-done
-
-read -rp "Enter poll interval in seconds (default: 3): " POLL_INTERVAL </dev/tty
-POLL_INTERVAL="${POLL_INTERVAL:-3}"
-while ! [[ "${POLL_INTERVAL}" =~ ^[0-9]+(\.[0-9]+)?$ ]] || (( $(echo "${POLL_INTERVAL} < 1" | bc -l) )); do
-    echo "    Poll interval must be a number >= 1."
-    read -rp "Enter poll interval in seconds (default: 3): " POLL_INTERVAL </dev/tty
-    POLL_INTERVAL="${POLL_INTERVAL:-3}"
+    read -rp "Enter scroll direction when disconnected (Natural/Standard): " SCROLL_DISCONNECTED </dev/tty
+    SCROLL_DISCONNECTED="$(tr '[:upper:]' '[:lower:]' <<< "${SCROLL_DISCONNECTED}")"
 done
 
 echo ""
@@ -162,7 +174,6 @@ echo "==> Writing config..."
 cat > "${CONFIG_DEST}" <<EOF
 {
     "deviceName": "${DEVICE_NAME}",
-    "pollIntervalSeconds": ${POLL_INTERVAL},
     "onConnected": {
         "keyboardLayout": "${LAYOUT_CONNECTED}",
         "scrollDirection": "${SCROLL_CONNECTED}"
